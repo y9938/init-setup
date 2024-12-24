@@ -1,0 +1,3 @@
+export PATH="$HOME/scripts:$PATH"
+alias cdD='cd ~/storage/shared/Download'
+alias cdS='cd ~/storage/shared/share'

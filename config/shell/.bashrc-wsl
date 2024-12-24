@@ -1,0 +1,5 @@
+
+# My settings
+export PATH="$HOME/scripts:$PATH"
+
+alias open="explorer.exe ."

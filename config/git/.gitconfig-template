@@ -1,0 +1,7 @@
+[user]
+    name = {USERNAME}
+    email = {EMAIL}
+[core]
+    autocrlf = input
+[init]
+    defaultBranch = main

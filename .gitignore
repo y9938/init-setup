@@ -1,0 +1,17 @@
+# Ignore secrets directory
+secrets/
+
+# GitConfig
+config/git/.gitconfig-*
+!config/git/.gitconfig-template
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+
+# Logs
+*.log
