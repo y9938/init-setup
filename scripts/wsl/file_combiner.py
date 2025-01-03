@@ -134,11 +134,12 @@ def get_file_extension(file_path):
 
 
 def combine_files(
-    directory,
+    paths,
     recursive=False,
     exclude_patterns=None,
     use_default_excludes=True,
     verbose=False,
+    output_path=None,
 ):
     all_exclude_patterns = []
     if use_default_excludes:
@@ -146,8 +147,13 @@ def combine_files(
     if exclude_patterns:
         all_exclude_patterns.extend(exclude_patterns)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = os.path.join(directory, f"combined_files_{timestamp}.txt")
+    if output_path:
+        output_file = output_path
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    else:
+        directory = os.getcwd()
+        timestamp = datetime.now().strftime("%H%M")
+        output_file = os.path.join(directory, f"Combined-{timestamp}.txt")
 
     files_to_process = []
     excluded_files = []
@@ -155,37 +161,60 @@ def combine_files(
     processed_files = []
     failed_files = []
 
-    # Collect all files
-    for root, _, files in (
-        os.walk(directory) if recursive else [(directory, None, os.listdir(directory))]
-    ):
-        for item in files:
-            full_path = os.path.join(root, item)
-            if full_path == output_file:
-                continue
+    # Process all provided paths
+    for path in paths:
+        if os.path.isdir(path):
+            # Handle directory
+            for root, _, files in (
+                os.walk(path) if recursive else [(path, None, os.listdir(path))]
+            ):
+                for item in files:
+                    full_path = os.path.join(root, item)
+                    if full_path == output_file:
+                        continue
 
-            # Handle directories in non-recursive mode
-            if not recursive and os.path.isdir(full_path):
+                    # Handle directories in non-recursive mode
+                    if not recursive and os.path.isdir(full_path):
+                        if verbose:
+                            FileColorPrinter.print_info(
+                                f"Skipped directory: {full_path} (use -r for recursive mode)"
+                            )
+                        skipped_dirs.append(full_path)
+                        continue
+
+                    exclude_pattern = is_excluded(full_path, all_exclude_patterns)
+                    if exclude_pattern:
+                        if verbose:
+                            FileColorPrinter.print_warning(
+                                f"Skipped: {full_path} (matched pattern: {exclude_pattern})"
+                            )
+                        excluded_files.append((full_path, exclude_pattern))
+                        continue
+
+                    files_to_process.append(full_path)
+                    if verbose:
+                        FileColorPrinter.print_info(f"Queued: {full_path}")
+        else:
+            # Handle single file
+            if os.path.isfile(path):
+                exclude_pattern = is_excluded(path, all_exclude_patterns)
+                if exclude_pattern:
+                    if verbose:
+                        FileColorPrinter.print_warning(
+                            f"Skipped: {path} (matched pattern: {exclude_pattern})"
+                        )
+                    excluded_files.append((path, exclude_pattern))
+                    continue
+
+                files_to_process.append(path)
                 if verbose:
-                    FileColorPrinter.print_info(
-                        f"Skipped directory: {full_path} (use -r for recursive mode)"
-                    )
-                skipped_dirs.append(full_path)
-                continue
-
-            exclude_pattern = is_excluded(full_path, all_exclude_patterns)
-            if exclude_pattern:
+                    FileColorPrinter.print_info(f"Queued: {path}")
+            else:
                 if verbose:
-                    FileColorPrinter.print_warning(
-                        f"Skipped: {full_path} (matched pattern: {exclude_pattern})"
-                    )
-                excluded_files.append((full_path, exclude_pattern))
-                continue
+                    FileColorPrinter.print_warning(f"Path not found: {path}")
+                failed_files.append((path, "File not found"))
 
-            files_to_process.append(full_path)
-            if verbose:
-                FileColorPrinter.print_info(f"Queued: {full_path}")
-
+    files_to_process = list(dict.fromkeys(files_to_process))  # Remove duplicates
     files_to_process.sort()
 
     # Process files
@@ -247,10 +276,15 @@ def main():
     )
 
     parser.add_argument(
-        "directory",
-        nargs="?",
-        default=".",
-        help="Directory to search (default: current)",
+        "paths",
+        nargs="*",
+        default=["."],
+        help="Files or directories to process",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        help="Output file path (default: Combined-HHMM.txt in current directory)",
     )
     parser.add_argument(
         "-r",
@@ -272,11 +306,12 @@ def main():
 
     try:
         combine_files(
-            directory=args.directory,
+            paths=args.paths,
             recursive=args.recursive,
             exclude_patterns=args.exclude,
             use_default_excludes=not args.no_default_excludes,
             verbose=args.verbose,
+            output_path=args.output,
         )
     except KeyboardInterrupt:
         FileColorPrinter.print_error("Operation cancelled by user")
